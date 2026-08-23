@@ -1,0 +1,8 @@
+node_modules/
+shots/
+dist/
+build/
+.DS_Store
+debug.log
+*.log
+*.tmp
