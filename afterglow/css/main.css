@@ -238,8 +238,9 @@ a:focus-visible, button:focus-visible {
   .rail a span { display:none; }        /* numerals only on phones */
   .rail { gap:16px; }
   .nav-cta { font-size:10px; letter-spacing:.14em; }
-  .display { font-size:clamp(34px, 11.5vw, 54px); }
-  .hero-head { max-width:100%; }
+  .display { font-size:clamp(32px, 9.6vw, 48px); }
+  /* Preserve the authored type treatment while keeping every hero line in-frame. */
+  .hero-head { max-width:100%; font-size:clamp(26px, 7.2vw, 34px); }
   .block { margin-top:48vh; margin-bottom:26vh; }
   .block-weather { margin-top:58vh; }
   .clock { margin-right:auto; padding-left:6px; }
