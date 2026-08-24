@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { Rig }        from './rig.js';
 import { buildWorld } from './world.js';
 import { ScrollDirector } from './dom.js';
+import { upgradeSceneAssets } from './assets/asset-registry.js';
 
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const COARSE = matchMedia('(hover: none)').matches;
@@ -14,6 +15,7 @@ const isMobile = () => innerWidth < 821;
 
 let renderer, scene, camera, rig, director, world;
 let running = true, last = performance.now(), introT0 = -1;
+let shadowPrimed = false;
 const clock = new THREE.Clock();
 
 function makeRenderer() {
@@ -33,22 +35,25 @@ function init() {
 
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.12;
+  renderer.toneMappingExposure = 1.02;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0xd8b98a, .0075);
+  scene.fog = new THREE.FogExp2(0xbca98b, .0065);
 
   camera = new THREE.PerspectiveCamera(38, innerWidth/innerHeight, .1, 240);
   camera.position.set(4.4, 3.3, 15.8);
 
   rig = new Rig(camera, { mobile: isMobile() });
 
-  world = buildWorld(scene);
+  world = buildWorld(scene, renderer);
+  upgradeSceneAssets(world, renderer).catch(error => {
+    console.warn('Professional asset layer unavailable; retaining procedural planting:', error);
+  });
 
   /* ── light: late-afternoon Oklahoma sun, 5:30 PM ─────────────── */
-  const sun = new THREE.DirectionalLight(0xffd9a3, 2.6);
+  const sun = new THREE.DirectionalLight(0xffe3bd, 2.35);
   sun.position.set(-14, 9, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -56,16 +61,16 @@ function init() {
   sun.shadow.camera.top = 18;   sun.shadow.camera.bottom = -18;
   sun.shadow.camera.far = 60;   sun.shadow.bias = -.0004;
   scene.add(sun);
-  scene.add(new THREE.HemisphereLight(0xcfe0f4, 0x6b5636, .85));
+  scene.add(new THREE.HemisphereLight(0x9ebbd3, 0x5a4935, 1.08));
 
   /* gradient sky dome */
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(160, 24, 14),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite:false, fog:false,
-      uniforms:{ top:{value:new THREE.Color(0x7fa7d9)},
-                 mid:{value:new THREE.Color(0xe8c495)},
-                 bot:{value:new THREE.Color(0xd9a86e)} },
+      uniforms:{ top:{value:new THREE.Color(0x718fb8)},
+                 mid:{value:new THREE.Color(0xd6b58d)},
+                 bot:{value:new THREE.Color(0xb97948)} },
       vertexShader:`varying vec3 vP; void main(){ vP=position;
         gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
       fragmentShader:`varying vec3 vP; uniform vec3 top,mid,bot;
@@ -127,6 +132,11 @@ function tick(now) {
   rig.update(dt, REDUCE);
 
   renderer.render(scene, camera);
+  /* The environment and sun are static in Pass 2A; reuse the first shadow map. */
+  if (!shadowPrimed) {
+    renderer.shadowMap.autoUpdate = false;
+    shadowPrimed = true;
+  }
 }
 
 init();

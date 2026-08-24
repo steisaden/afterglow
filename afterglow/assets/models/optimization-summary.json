@@ -1,0 +1,164 @@
+[
+  {
+    "id": "jacaranda_tree",
+    "lod": 0,
+    "ratio": 0.03,
+    "bytes": 12148520
+  },
+  {
+    "id": "jacaranda_tree",
+    "lod": 1,
+    "ratio": 0.012,
+    "bytes": 10146576
+  },
+  {
+    "id": "jacaranda_tree",
+    "lod": 2,
+    "ratio": 0.003,
+    "bytes": 9212996
+  },
+  {
+    "id": "island_tree_01",
+    "lod": 0,
+    "ratio": 0.08,
+    "bytes": 9174500
+  },
+  {
+    "id": "island_tree_01",
+    "lod": 1,
+    "ratio": 0.025,
+    "bytes": 7302504
+  },
+  {
+    "id": "island_tree_01",
+    "lod": 2,
+    "ratio": 0.006,
+    "bytes": 6407068
+  },
+  {
+    "id": "tree_small_02",
+    "lod": 0,
+    "ratio": 0.02,
+    "bytes": 7358268
+  },
+  {
+    "id": "tree_small_02",
+    "lod": 1,
+    "ratio": 0.008,
+    "bytes": 6874812
+  },
+  {
+    "id": "tree_small_02",
+    "lod": 2,
+    "ratio": 0.002,
+    "bytes": 6632740
+  },
+  {
+    "id": "shrub_01",
+    "lod": 0,
+    "ratio": 0.35,
+    "bytes": 2280556
+  },
+  {
+    "id": "shrub_01",
+    "lod": 1,
+    "ratio": 0.12,
+    "bytes": 1914280
+  },
+  {
+    "id": "shrub_01",
+    "lod": 2,
+    "ratio": 0.03,
+    "bytes": 1740000
+  },
+  {
+    "id": "shrub_02",
+    "lod": 0,
+    "ratio": 0.35,
+    "bytes": 1340288
+  },
+  {
+    "id": "shrub_02",
+    "lod": 1,
+    "ratio": 0.12,
+    "bytes": 1266716
+  },
+  {
+    "id": "shrub_02",
+    "lod": 2,
+    "ratio": 0.03,
+    "bytes": 1234276
+  },
+  {
+    "id": "shrub_04",
+    "lod": 0,
+    "ratio": 0.35,
+    "bytes": 1287436
+  },
+  {
+    "id": "shrub_04",
+    "lod": 1,
+    "ratio": 0.12,
+    "bytes": 1218364
+  },
+  {
+    "id": "shrub_04",
+    "lod": 2,
+    "ratio": 0.03,
+    "bytes": 1184976
+  },
+  {
+    "id": "grass_medium_01",
+    "lod": 0,
+    "ratio": 0.5,
+    "bytes": 3028320
+  },
+  {
+    "id": "grass_medium_01",
+    "lod": 1,
+    "ratio": 0.18,
+    "bytes": 2905804
+  },
+  {
+    "id": "grass_medium_01",
+    "lod": 2,
+    "ratio": 0.05,
+    "bytes": 2860860
+  },
+  {
+    "id": "periwinkle_plant",
+    "lod": 0,
+    "ratio": 0.5,
+    "bytes": 2185092
+  },
+  {
+    "id": "periwinkle_plant",
+    "lod": 1,
+    "ratio": 0.18,
+    "bytes": 2019240
+  },
+  {
+    "id": "periwinkle_plant",
+    "lod": 2,
+    "ratio": 0.05,
+    "bytes": 2003380
+  },
+  {
+    "id": "celandine_01",
+    "lod": 0,
+    "ratio": 0.5,
+    "bytes": 2030112
+  },
+  {
+    "id": "celandine_01",
+    "lod": 1,
+    "ratio": 0.18,
+    "bytes": 1988252
+  },
+  {
+    "id": "celandine_01",
+    "lod": 2,
+    "ratio": 0.05,
+    "bytes": 1971400
+  }
+]

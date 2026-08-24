@@ -1,0 +1,43 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{margin:0;background:#8a8578;overflow:hidden}#c{width:100vw;height:100vh;display:block}</style>
+<script type="importmap">{"imports":{"three":"./../vendor/three.module.min.js"}}</script>
+</head><body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './../vendor/loaders/GLTFLoader.js';
+const params = new URLSearchParams(location.search);
+const file = params.get('m') || 'fern_02_1k.glb';
+const renderer = new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8a8578);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(30,40),
+  new THREE.MeshStandardMaterial({color:0x777264,roughness:1}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+const sun = new THREE.DirectionalLight(0xfff2dd, 2.6);
+sun.position.set(6,9,4); sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,far:40});
+scene.add(sun, new THREE.HemisphereLight(0xbcc8d8,0x5c5344,1.1));
+const camera = new THREE.PerspectiveCamera(35, innerWidth/innerHeight, .05, 200);
+const box = new THREE.Box3(), size = new THREE.Vector3(), center = new THREE.Vector3();
+new GLTFLoader().load(file, g => {
+  const m = g.scene;
+  m.traverse(o => { if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+  scene.add(m);
+  box.setFromObject(m); box.getSize(size); box.getCenter(center);
+  m.position.sub(center);
+  const dist = Math.max(size.x,size.y,size.z) * 1.9;
+  camera.position.set(dist*.72, size.y*.55 + dist*.34, dist*.86);
+  camera.lookAt(0, size.y*.32, 0);
+  renderer.render(scene,camera);
+  document.title = 'READY ' + size.y.toFixed(2);
+}, undefined, e => { document.title = 'ERROR ' + e.message; });
+addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();});
+function loop(){ requestAnimationFrame(loop); renderer.render(scene,camera); } loop();
+</script></body></html>
