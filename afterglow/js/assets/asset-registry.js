@@ -18,39 +18,39 @@ export const vegetationRegistry = {
     castShadow: true, receiveShadow: true
   },
   floweringShrub: {
-    path: 'vegetation/shrub_01', scale: 0.82, distances: [0, 15, 30],
+    path: 'vegetation/shrub_01', initialLod: 2, scale: 0.82, distances: [0, 7, 13],
     castShadow: false, receiveShadow: true
   },
   looseShrub: {
-    path: 'vegetation/shrub_02', scale: 0.88, distances: [0, 16, 31],
+    path: 'vegetation/shrub_02', initialLod: 2, scale: 0.88, distances: [0, 7, 13],
     castShadow: false, receiveShadow: true
   },
   compactShrub: {
-    path: 'vegetation/shrub_04', scale: 0.76, distances: [0, 15, 29],
+    path: 'vegetation/shrub_04', initialLod: 2, scale: 0.76, distances: [0, 7, 13],
     castShadow: false, receiveShadow: true
   },
   meadowGrass: {
-    path: 'vegetation/grass_medium_01', scale: 0.74, distances: [0, 13, 26],
+    path: 'vegetation/grass_medium_01', initialLod: 2, scale: 0.74, distances: [0, 6, 12],
     castShadow: false, receiveShadow: true
   },
   periwinkle: {
-    path: 'garden/periwinkle_plant', scale: 0.72, distances: [0, 12, 24],
+    path: 'garden/periwinkle_plant', initialLod: 2, scale: 0.72, distances: [0, 6, 12],
     castShadow: false, receiveShadow: true, tint: 0xb6a6c8
   },
   celandine: {
-    path: 'garden/celandine_01', scale: 0.68, distances: [0, 12, 24],
+    path: 'garden/celandine_01', initialLod: 2, scale: 0.68, distances: [0, 6, 12],
     castShadow: false, receiveShadow: true, tint: 0xf0dfc4
   },
   kitchenHerb: {
-    path: 'vegetation/shrub_02', scale: 0.24, distances: [0, 11, 22],
+    path: 'vegetation/shrub_02', initialLod: 2, scale: 0.24, distances: [0, 5, 10],
     castShadow: false, receiveShadow: true, tint: 0x85906c
   },
   kitchenGreens: {
-    path: 'vegetation/shrub_04', scale: 0.27, distances: [0, 11, 22],
+    path: 'vegetation/shrub_04', initialLod: 2, scale: 0.27, distances: [0, 5, 10],
     castShadow: false, receiveShadow: true, tint: 0x9cab78
   },
   potagerFlower: {
-    path: 'garden/periwinkle_plant', scale: 0.34, distances: [0, 11, 22],
+    path: 'garden/periwinkle_plant', initialLod: 2, scale: 0.34, distances: [0, 5, 10],
     castShadow: false, receiveShadow: true, tint: 0xc1aacb
   },
   /* Background canopy: real tree silhouettes retire the procedural lobes.
@@ -61,7 +61,7 @@ export const vegetationRegistry = {
   },
   /* Privacy hedge: irregular real shrub mass replaces sphere instances. */
   hedgeShrub: {
-    path: 'vegetation/shrub_04', scale: 1.18, distances: [1, 2, 0],
+    path: 'vegetation/shrub_04', initialLod: 2, scale: 1.18, distances: [1, 2, 0],
     fixedLod: 2, castShadow: false, receiveShadow: true
   }
 };
@@ -99,6 +99,7 @@ const plantingPlan = {
 };
 
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const sharedAssetMaterials = new Map();
 const modelCache = new Map();
 
 function loadModel(url) {
@@ -153,13 +154,20 @@ async function createPlantLOD(key, definition, placement) {
     return lod;
   }
 
-  const source = await loadModel(`${MODEL_ROOT}/${definition.path}_lod1.glb`);
-  const midLevel = prepareLevel(source, definition, 1);
-  const sharedMaterials = [];
-  midLevel.traverse(object => { if (object.isMesh) sharedMaterials.push(object.material); });
-  lod.addLevel(midLevel, definition.distances[1]);
+  const initial = definition.initialLod ?? 1;
+  const source = await loadModel(`${MODEL_ROOT}/${definition.path}_lod${initial}.glb`);
+  if (!sharedAssetMaterials.has(definition.path)) {
+    const seed = prepareLevel(source, definition, initial);
+    const mats = [];
+    seed.traverse(object => { if (object.isMesh) mats.push(object.material); });
+    sharedAssetMaterials.set(definition.path, mats);
+  }
+  const sharedMaterials = sharedAssetMaterials.get(definition.path);
+  const initialLevel = prepareLevel(source, definition, initial, sharedMaterials);
+  lod.addLevel(initialLevel, definition.distances[initial]);
+  if (initial === 2) lod.userData.singleLevel = true;  /* bed roles: never within 7 m */
   lod.userData.loadLowerLevels = async () => {
-    const indexes = [0, 2];
+    const indexes = [0, 1, 2].filter(i => i !== initial);
     const sources = await Promise.all(indexes.map(index => loadModel(`${MODEL_ROOT}/${definition.path}_lod${index}.glb`)));
     sources.forEach((levelSource, sourceIndex) => {
       const lodIndex = indexes[sourceIndex];
@@ -200,13 +208,13 @@ export async function upgradeSceneAssets(world, renderer) {
   world.userData.professionalAssetCount = plants.length;
   const pending = plants.slice();
   const hydrateNextLOD = () => {
-    const plant = pending.shift();
-    if (!plant) return;
-    if (!plant.userData.loadLowerLevels) { hydrateNextLOD(); return; }
-    plant.userData.loadLowerLevels().finally(() => {
-      if ('requestIdleCallback' in window) requestIdleCallback(hydrateNextLOD, { timeout: 30000 });
-      else setTimeout(hydrateNextLOD, 250);
+    if (!pending.length) return;
+    const batch = pending.splice(0, 3);
+    batch.forEach(plant => {
+      if (plant.userData.loadLowerLevels && !plant.userData.singleLevel)
+        plant.userData.loadLowerLevels().catch(() => {});
     });
+    setTimeout(hydrateNextLOD, 90);
   };
   setTimeout(() => {
     if ('requestIdleCallback' in window) requestIdleCallback(hydrateNextLOD, { timeout: 30000 });

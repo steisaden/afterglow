@@ -344,10 +344,11 @@ export function buildWorld(scene, renderer) {
   foreground.add(fgGrass);
 
   /* Near-lawn blade islands add silhouette/detail only where the camera can resolve it. */
-  const turfBladeCount=900;
-  const turfBlades=turfFieldInstances(M.turfBlade,turfBladeCount);
-  turfBlades.name='near-lawn-detail';
-  foreground.add(turfBlades);
+  /* Near-camera lawn: real tapered blades with a shared GPU wind field. */
+  const lawnBlades = lawnBladesField(M, isCoarseDevice());
+  lawnBlades.name = 'near-lawn-blades';
+  foreground.add(lawnBlades);
+  world.userData.lawnWind = lawnBlades.userData.wind;
 
 
   world.userData.layers = { site, house, pergola, kitchen, gathering, potager, landscape, foreground };
@@ -355,7 +356,7 @@ export function buildWorld(scene, renderer) {
     paverInstances: paverTransforms.length,
     hedgeInstances: hedgePositions.length,
     shrubInstances: shrubTransforms.reduce((sum,items)=>sum+items.length,0),
-    grassBladeInstances: grassSites.length * 28 + fgSites.length * 28 + turfBladeCount,
+    grassBladeInstances: grassSites.length * 28 + fgSites.length * 28 + (lawnBlades.userData.count || 0),
     farTreeCount: farTreeSites.length,
     heroAndMidTreeCount: 4
   };
@@ -899,6 +900,100 @@ function addInstancedTrees(parent,sites,M,{far=false}={}) {
   const farCanopies=instances(crossedLeafGeometry(2.45,2.15),M.farCanopy,canopyTransforms);
   if (far) { farTrunks.name='far-canopy-trunks'; farCanopies.name='far-canopy-trees'; }
   parent.add(farTrunks, farCanopies);
+}
+
+
+/* ── production lawn-blade field ─────────────────────────────────
+   Tapered instanced blades + shared GPU wind. Scatter honors the
+   hardscape exclusions (patio, walk, beds, house pad). Wind strength
+   is driven per-frame from the environment timeline. */
+function isCoarseDevice() {
+  return (typeof matchMedia !== 'undefined') &&
+    (matchMedia('(pointer: coarse)').matches || innerWidth < 821);
+}
+
+function lawnBladeGeometry() {
+  const ys=[0,.014,.030,.045,.055], hs=[.003,.0028,.0022,.0014,0];
+  const p=[],uv=[],ix=[];
+  for(let i=0;i<5;i++){
+    p.push(-hs[i],ys[i],0, hs[i],ys[i],0);
+    uv.push(0,i/4, 1,i/4);
+    if(i<4){const b=i*2; ix.push(b,b+1,b+3, b,b+3,b+2);}
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(ix); g.computeVertexNormals();
+  return g;
+}
+
+function lawnBladesField(M, coarse) {
+  const count = coarse ? 5500 : 14000;
+  const wind = {
+    time:     { value: 0 },
+    strength: { value: .35 },
+    simple:   { value: coarse ? 1 : 0 }
+  };
+
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x5d7442, roughness: .88, metalness: 0,
+    side: THREE.DoubleSide, vertexColors: true
+  });
+  material.onBeforeCompile = shader => {
+    shader.uniforms.uTime = wind.time;
+    shader.uniforms.uStrength = wind.strength;
+    shader.uniforms.uSimple = wind.simple;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+uniform float uTime,uStrength,uSimple;
+float hash21(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x),mix(hash21(i+vec2(0,1)),hash21(i+vec2(1)),f.x),f.y);}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vec3 root=(modelMatrix*instanceMatrix*vec4(0.,0.,0.,1.)).xyz;
+float hgt=uv.y,phase=dot(root.xz,vec2(.31,.23));
+float broad=sin(uTime*.72+phase)*.5+.5;
+float gust=uSimple>.5?broad:(noise2(root.xz*.11+vec2(uTime*.075,uTime*.035))*.62+noise2(root.xz*.27-vec2(uTime*.13,0.))*.38);
+float bend=uStrength*(.22+.78*gust)*hgt*hgt;
+transformed.x+=bend;transformed.z+=bend*.38+sin(uTime*1.15+phase*1.7)*uStrength*.12*hgt*hgt;`);
+  };
+  material.customProgramCacheKey = () => `lawn-${coarse?'m':'d'}-v1`;
+
+  const mesh = new THREE.InstancedMesh(lawnBladeGeometry(), material, count);
+  const o = new THREE.Object3D(), c = new THREE.Color();
+  const random = seeded(90210);
+  let placed = 0, guard = 0;
+  while (placed < count && guard++ < count * 4) {
+    let x, z;
+    if (random() < .8) {
+      x = -11 + random() * 21; z = 1.0 + random() * 8.5;
+      if (x > 5.2 && z < 5.2) continue;
+    } else {
+      const side = random() < .5;
+      x = side ? (-7.6 + random() * 1.3) : (5.9 + random() * 3.6);
+      z = -0.5 + random() * 8.0;
+    }
+    const patch = .5 + .5 * Math.sin(x * .43 + Math.sin(z * .31));
+    const dry = random() < (.015 + .07 * Math.max(0, .3 - patch));
+    const h = .062 + random() * .082, w = .78 + random() * .55;
+    o.position.set(x, .012, z);
+    o.rotation.set((random() - .5) * .05, random() * Math.PI, (random() - .5) * .07);
+    o.scale.set(w, h, w);
+    o.updateMatrix();
+    mesh.setMatrixAt(placed, o.matrix);
+    c.setHSL(dry ? .11 : .26 + (random() - .5) * .025,
+             dry ? .36 : .40 + random() * .12,
+             dry ? .44 : .32 + random() * .10);
+    mesh.setColorAt(placed, c);
+    placed++;
+  }
+  mesh.count = placed;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.frustumCulled = false;
+  mesh.receiveShadow = true;
+  mesh.userData.count = placed;
+  mesh.userData.wind = wind;
+  return mesh;
 }
 
 function crossedLeafGeometry(width,height) {

@@ -9,6 +9,7 @@ import { buildWorld } from './world.js';
 import { ScrollDirector } from './dom.js';
 import { upgradeSceneAssets } from './assets/asset-registry.js';
 import { sampleEnvironment, applyEnvironment } from './environment.js';
+import { damp } from './rig.js';
 
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const COARSE = matchMedia('(hover: none)').matches;
@@ -99,6 +100,7 @@ function init() {
   scene.userData.sky = sky;
 
   applySize();
+  if (typeof window !== 'undefined') window.__renderer = renderer; /* QA hook */
   try { director = new ScrollDirector(); }
   catch (e) { console.warn('DOM wiring failed; world continues:', e); director = null; }
   bindPointer();
@@ -118,7 +120,7 @@ function init() {
 }
 
 function applySize() {
-  const dprCap = isMobile() ? 1.25 : 1.75;
+  const dprCap = isMobile() ? 1.2 : 1.5;
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, dprCap));
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
@@ -150,6 +152,14 @@ function tick(now) {
   const u = director ? director.uTarget : 0;
   const env = sampleEnvironment(u, now / 1000);
   applyEnvironment(scene, env, renderer, now / 1000);
+
+  /* lawn wind follows the weather track */
+  const lawnWind = world?.userData?.lawnWind;
+  if (lawnWind) {
+    lawnWind.time.value += dt;
+    lawnWind.strength.value = damp(lawnWind.strength.value,
+      .18 + env.weather.wind * .85, 2.5, dt);
+  }
 
   /* sun moves with the timeline — refresh shadows only when it drifted */
   if (!shadowPrimed) {
