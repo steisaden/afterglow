@@ -241,6 +241,7 @@ a:focus-visible, button:focus-visible {
   .display { font-size:clamp(32px, 9.6vw, 48px); }
   /* Preserve the authored type treatment while keeping every hero line in-frame. */
   .hero-head { max-width:100%; font-size:clamp(26px, 7.2vw, 34px); }
+  .hero-title { font-size:15px; letter-spacing:.38em; }  /* wordmark must clear the frame edge */
   .block { margin-top:48vh; margin-bottom:26vh; }
   .block-weather { margin-top:58vh; }
   .clock { margin-right:auto; padding-left:6px; }
