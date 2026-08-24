@@ -8,6 +8,7 @@ import { Rig }        from './rig.js';
 import { buildWorld } from './world.js';
 import { ScrollDirector } from './dom.js';
 import { upgradeSceneAssets } from './assets/asset-registry.js';
+import { sampleEnvironment, applyEnvironment } from './environment.js';
 
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const COARSE = matchMedia('(hover: none)').matches;
@@ -16,6 +17,7 @@ const isMobile = () => innerWidth < 821;
 let renderer, scene, camera, rig, director, world;
 let running = true, last = performance.now(), introT0 = -1;
 let shadowPrimed = false;
+const shadowLastDir = new THREE.Vector3(1e9, 1e9, 1e9);
 const clock = new THREE.Clock();
 
 function makeRenderer() {
@@ -61,7 +63,20 @@ function init() {
   sun.shadow.camera.top = 18;   sun.shadow.camera.bottom = -18;
   sun.shadow.camera.far = 60;   sun.shadow.bias = -.0004;
   scene.add(sun);
-  scene.add(new THREE.HemisphereLight(0x9ebbd3, 0x5a4935, 1.08));
+  const hemi = new THREE.HemisphereLight(0x9ebbd3, 0x5a4935, 1.08);
+  scene.add(hemi);
+  scene.userData.hemi = hemi;
+
+  /* practicals: fire glow + pergola string circuit (driven by timeline) */
+  const fireLight = new THREE.PointLight(0xff8a3c, 0, 9, 1.8);
+  fireLight.position.set(0.75, 1.1, -3.05);
+  scene.add(fireLight);
+  scene.userData.fireLight = fireLight;
+  const stringLight = new THREE.PointLight(0xffc98a, 0, 11, 1.6);
+  stringLight.position.set(-3.7, 3.4, -4.75);
+  scene.add(stringLight);
+  scene.userData.stringLight = stringLight;
+  scene.userData.flame = world.userData.flame;
 
   /* gradient sky dome */
   const sky = new THREE.Mesh(
@@ -131,12 +146,26 @@ function tick(now) {
   }
   rig.update(dt, REDUCE);
 
-  renderer.render(scene, camera);
-  /* The environment and sun are static in Pass 2A; reuse the first shadow map. */
+  /* one timeline drives the whole day */
+  const u = director ? director.uTarget : 0;
+  const env = sampleEnvironment(u, now / 1000);
+  applyEnvironment(scene, env, renderer, now / 1000);
+
+  /* sun moves with the timeline — refresh shadows only when it drifted */
   if (!shadowPrimed) {
     renderer.shadowMap.autoUpdate = false;
     shadowPrimed = true;
   }
+  const sun = scene.userData.sun;
+  if (sun) {
+    const moved = shadowLastDir.distanceToSquared(sun.position) > 0.16;
+    if (moved) {
+      renderer.shadowMap.needsUpdate = true;
+      shadowLastDir.copy(sun.position);
+    }
+  }
+
+  renderer.render(scene, camera);
 }
 
 init();
